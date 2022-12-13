@@ -1,4 +1,5 @@
-from moode_funcs_2 import *
+from moode_funcs_3 import moode
+from autoencoder import train_model, latent_count
 from test_funcs import *
 import numpy as np
 import time
@@ -15,14 +16,16 @@ def plot_2_obj(population, functions):
 if __name__ == "__main__":
     population_size = 50
     candidate_size = 9
-    no_of_inputs = 10
+    no_of_inputs = 13
     num_of_gens = 100
-    func = Chanking_Haimes()
-    func_name = 'Chanking Haimes'
+    # func = Chanking_Haimes()
+    # func_name = 'Autoencoder'
+    functions = [train_model, latent_count]
 
     start_time = time.time()
-    next_gen = moode(population_size, candidate_size, no_of_inputs, num_of_gens, [func.f1,func.f2])
+    # next_gen = moode(population_size, candidate_size, no_of_inputs, num_of_gens, [func.f1, func.f2])
+    next_gen = moode(population_size, candidate_size, no_of_inputs, num_of_gens, functions)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     # Plotting
-    plot_2_obj(next_gen, [func.f1,func.f2])
+    # plot_2_obj(next_gen, [train_model, latent_count])

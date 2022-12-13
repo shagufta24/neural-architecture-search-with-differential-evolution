@@ -2,76 +2,64 @@ import tensorflow.keras as keras
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Dense, Input, Flatten,\
                                     Reshape, LeakyReLU as LR,\
-                                    Activation, Dropout
+                                    Activation, Dropout, InputLayer
 from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras.losses import *
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
-# Load MNIST data
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-x_train = x_train/255.0
-x_test = x_test/255.0
+# Read data
+df = pd.read_csv('data.csv')
+df.drop(df.columns[[0]], axis=1, inplace=True)
 
-# Plot image data from x_train
-plt.imshow(x_train[0], cmap = "gray")
-plt.show()
+# Split data
+X = df.iloc[:, :-1]
+X = X.to_numpy()
+y = df.iloc[:, -1]
+y = y.to_numpy()
+X_train, X_val, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
 
-LATENT_SIZE = 32
+output_size = X.shape[1]
+input_size = (X.shape[1],)
 
-encoder = Sequential([
-    Flatten(input_shape = (28, 28)),
-    Dense(512),
-    LR(),
-    Dropout(0.5),
-    Dense(256),
-    LR(),
-    Dropout(0.5),
-    Dense(128),
-    LR(),
-    Dropout(0.5),
-    Dense(64),
-    LR(),
-    Dropout(0.5),
-    Dense(LATENT_SIZE),
-    LR()
-])
+def train_model(candidate):
+    latent_size = candidate[-1]
+    input_layers = candidate[:4]
+    output_layers = candidate[4:-1]
 
-decoder = Sequential([
-    Dense(64, input_shape = (LATENT_SIZE,)),
-    LR(),
-    Dropout(0.5),
-    Dense(128),
-    LR(),
-    Dropout(0.5),
-    Dense(256),
-    LR(),
-    Dropout(0.5),
-    Dense(512),
-    LR(),
-    Dropout(0.5),
-    Dense(784),
-    Activation("sigmoid"),
-    Reshape((28, 28))
-])
-
-img = Input(shape = (28, 28))
-latent_vector = encoder(img)
-output = decoder(latent_vector)
-model = Model(inputs = img, outputs = output)
-model.compile("nadam", loss = "binary_crossentropy")
-EPOCHS = 60
-
-for epoch in range(EPOCHS):
-    fig, axs = plt.subplots(4, 4)
-    rand = x_test[np.random.randint(0, 10000, 16)].reshape((4, 4, 1, 28, 28))
+    encoder = Sequential()
+    encoder.add(InputLayer(input_shape=input_size))
+    for nodes in input_layers:
+        encoder.add(Dense(nodes, activation='tanh'))
+    encoder.add(Dense(latent_size, activation='tanh'))
     
-    
-    for i in range(4):
-        for j in range(4):
-            axs[i, j].imshow(model.predict(rand[i, j])[0], cmap = "gray")
-            axs[i, j].axis("off")
-    
-    plt.subplots_adjust(wspace = 0, hspace = 0)
-    plt.show()
-    print("-----------", "EPOCH", epoch, "-----------")
-    model.fit(x_train, x_train)
+    decoder = Sequential()
+    decoder.add(InputLayer(input_shape=(latent_size,)))
+    for nodes in output_layers:
+        decoder.add(Dense(nodes, activation='tanh'))
+    decoder.add(Dense(output_size, activation='tanh'))
+
+    inputs = Input(shape = input_size)
+    latent_vector = encoder(inputs)
+    output = decoder(latent_vector)
+
+    model = Model(inputs = inputs, outputs = output)
+
+    optimizer = keras.optimizers.Adam(learning_rate=0.001)
+    loss = keras.losses.MeanAbsolutePercentageError()
+    metrics = ['accuracy']
+    model.compile(optimizer, loss = loss)
+
+    history = model.fit(X_train, X_train, epochs=200, batch_size=64, verbose=0)
+
+    train_loss = history.history['loss'][-1]
+    return train_loss
+
+def latent_count(candidate):
+    return candidate[-1]
+
+def param_count():
+    pass

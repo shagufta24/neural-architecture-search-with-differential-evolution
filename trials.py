@@ -26,7 +26,17 @@ int_cand = float_to_int_mapping(candidate)
 population = [[2, 3, 5], [6, 3, 9], [0, 8, 1]]
 func_values = [4, 8, 2]
 sorted_pop = [member for _, member in sorted(zip(func_values, population))]
-print(sorted_pop)
+# print(sorted_pop)
+
+n_inputs = 7
+float_nums = np.array([i*(1/(2*n_inputs+1)) for i in range(2*n_inputs+1)])
+mapping = {float_nums[i]: i for i in range(2*n_inputs+1)}
+# print(mapping)
+
+a = [1, 2, 3, 4, 5]
+b = ['a', 'b', 'c']
+c = [6, 7, 8]
+print(a+b+c)
         
 
 
