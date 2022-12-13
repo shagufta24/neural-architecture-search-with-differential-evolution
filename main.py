@@ -14,10 +14,10 @@ def plot_2_obj(population, functions):
     plt.show()
 
 if __name__ == "__main__":
-    population_size = 50
+    population_size = 5
     candidate_size = 9
     no_of_inputs = 13
-    num_of_gens = 100
+    num_of_gens = 5
     # func = Chanking_Haimes()
     # func_name = 'Autoencoder'
     functions = [train_model, latent_count]

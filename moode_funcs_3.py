@@ -7,8 +7,23 @@ import time
 
 K = 0.5
 crossover_probability = 0.75
+
+global obj_func_1
+global obj_func_2
 obj_func_1 = []
 obj_func_2 = []
+
+# Open file to write output
+global f
+f = open("output.txt", "a")
+# Clear contents
+f.seek(0)
+f.truncate()
+# Headers
+f.write("Generation\t")
+f.write("Best loss\t")
+f.write("Best latent size\t")
+f.write("Best accuracy\n")
 
 # Upper and lower bounds for variables
 class set_limits(object):
@@ -82,11 +97,12 @@ def float_to_int_mapping(vector):
 # Checking if one candidate pareto domainates another based on obj function values
 def dominate(cand1_index, cand2_index, obj_func_vals):
     flag = 0
-    for f in functions:
-        v1_fitness = obj_func_vals[0][cand1_index]
-        v2_fitness = obj_func_vals[0][cand2_index]
-        if v1_fitness > v2_fitness: return False
-        if v1_fitness < v2_fitness: flag = 1
+    for obj_func in obj_func_vals:
+        c1_fitness = obj_func[cand1_index]
+        c2_fitness = obj_func[cand2_index]
+        # Minimization problem
+        if c1_fitness > c2_fitness: return False
+        if c1_fitness < c2_fitness: flag = 1
     if flag == 1: return True
     return False
 
@@ -139,26 +155,27 @@ def crowding_distance(population, mapped_pop, obj_func_vals):
     # Array of Di for each member i of front k
     crowd_dist = [sys.maxsize] * len(population)
 
+    # Convert each candidate to a list
+    population_list = [member.tolist() for member in population]
+
     # For each function
     for func_values in obj_func_vals:
         # Sort population in ascending order of objective function values
-        # func_values = []
-        # for member in mapped_pop:
-        #     func_values.append(f(member))
-        
-        population_list = [member.tolist() for member in population]
         sorted_pop = [np.array(member) for _, member in sorted(zip(func_values, population_list))]
-        sorted_mapped_pop = [member for _, member in sorted(zip(func_values, mapped_pop))]
+        # sorted_mapped_pop = [member for _, member in sorted(zip(func_values, mapped_pop))]
 
+        # Sort the function values in ascending order
+        sorted_func_values = sorted(func_values)
+    
         # print('Population sorted by function values\n')
     
         # For each member in sorted population, find crowding distance di
         # Add computed di to Di
-        for index in range(1, len(sorted_mapped_pop)-1):
-            f_prev = f(sorted_mapped_pop[index-1])
-            f_next = f(sorted_mapped_pop[index+1])
-            f_first = f(sorted_mapped_pop[0])
-            f_last = f(sorted_mapped_pop[len(sorted_pop)-1])
+        for index in range(1, len(sorted_pop)-1):
+            f_prev = sorted_func_values[index-1]
+            f_next = sorted_func_values[index+1]
+            f_first = sorted_func_values[0]
+            f_last = sorted_func_values[-1]
             crowd_dist[index] += (np.abs(f_prev - f_next)/(np.abs(f_first - f_last)+sys.float_info.epsilon))
         # print('Crowding dist computed\n')
 
@@ -168,9 +185,13 @@ def crowding_distance(population, mapped_pop, obj_func_vals):
 
 # To find the next generation of candidates from the parents+trials pool
 def nsde(population, functions, gen):
+
     print("NSDE Algo")
-    pop_size = len(population)/2 # Size of new generation
+    pop_size = len(population)
+    next_gen_size = int(pop_size/2) # Size of new generation = N
+    
     next_gen = []
+    best_accuracy = 0
 
     # Map all candidates from float to integer space
     mapped_pop = []
@@ -178,19 +199,47 @@ def nsde(population, functions, gen):
         mapped_pop.append(float_to_int_mapping(vector))
     # print('Population mapped to integer space\n')
 
+    # NOTE: First half of mapped_pop has parent vectors, second half has trial vectors
+
     # Compute and store obj function values for all candidates
+    # obj_func_1 = training loss
+    # obj_func_2 = no of latent nodes 
+    # For the first generation, calculate all values
+    print("Training model...")
+
+    global obj_func_1
+    global obj_func_2
+
     if (gen == 0):
-        obj_func_1 = [functions[0](candidate) for candidate in mapped_pop] # training loss
-        obj_func_2 = [functions[1](candidate) for candidate in mapped_pop] # no of latent nodes
+        # Initialize 
+        obj_func_1 = [0] * pop_size
+        obj_func_2 = [0] * pop_size
+
+        for i in tqdm(range(0, pop_size)):
+            obj_func_1[i], accuracy = functions[0](mapped_pop[i])
+            if accuracy > best_accuracy: best_accuracy = accuracy
+            obj_func_2[i] = functions[1](mapped_pop[i])
+
+        # obj_func_1, accuracy = [functions[0](candidate) for candidate in tqdm(mapped_pop)] 
+        # if accuracy > best_accuracy: best_accuracy = accuracy
+        # obj_func_2 = [functions[1](candidate) for candidate in tqdm(mapped_pop)]
     else:
         # We only recalculate the trial vector function values, since parent vector function values
         # were computed in previous generation
-        for i in range(pop_size/2-1, pop_size):
-            obj_func_1[i] = functions[0](mapped_pop[i])
+        for i in tqdm(range(next_gen_size, pop_size)):
+            obj_func_1[i], accuracy = functions[0](mapped_pop[i])
+            if accuracy > best_accuracy: best_accuracy = accuracy
             obj_func_2[i] = functions[1](mapped_pop[i])
+
+    f.write(str(min(obj_func_1)))
+    f.write("\t\t")
+    f.write(str(min(obj_func_2)))
+    f.write("\t\t")
+    f.write(str(best_accuracy))
+    f.write("\n")
             
-    unfilled_spots = pop_size # initially all spots are empty
-    while(len(next_gen) < pop_size):
+    unfilled_spots = next_gen_size # initially all spots are empty
+    while(len(next_gen) < next_gen_size):
         # Generate a front
         front, mapped_front, new_population, new_mapped_pop = get_front(population, mapped_pop, [obj_func_1, obj_func_2])
 
@@ -212,7 +261,8 @@ def nsde(population, functions, gen):
         # print('NSDE done\n')
         population = new_population[:]
         mapped_pop = new_mapped_pop[:]
-    return next_gen
+
+    return next_gen, best_accuracy
 
 # Replace every negative value with a random value between 0 and 1
 def approx_trial(trial):
@@ -221,6 +271,7 @@ def approx_trial(trial):
 def moode(pop_size, cand_size, n_inputs, gens, functions):
     # Create the random number mapping to map from float to int space
     initialize_mapping(n_inputs)
+    best_accuracies = []
 
     # Set the constraints for each gene
     for key, value in mapping.items():
@@ -231,10 +282,13 @@ def moode(pop_size, cand_size, n_inputs, gens, functions):
 
     # Create initial population of parents
     parents = initialize_candidates(cand_size, pop_size, limits)
-    approx_trial_vectors = 0
     for g in range(gens):
         start_time = time.time()
+
         print('Generation ', g+1, ':\n')
+        f.write(str(g))
+        f.write("\t\t")
+
         trials = []
         F = get_F()
         for index, candidate in enumerate(parents):
@@ -246,20 +300,23 @@ def moode(pop_size, cand_size, n_inputs, gens, functions):
                 if (check_constraints(trial, limits) == True): break
                 retry_count += 1
                 # If too many retries, replace negative values with random values in trial vector
-                # With threshold = 1000, around 8-10% vectors are approximated
-                # With threshold = 1500, around 8-10% vectors are approximated
-                if (retry_count == 1500):
+                # With threshold = 1000, around 8-10% vectors are approximated, 34 secs
+                # With threshold = 1500, around 4-5% vectors are approximated, 25 secs
+                # With threshold = 2000, around 4-5% vectors are approximated, 48 secs
+                if (retry_count == 2000):
                     trial = approx_trial(trial)
-                    approx_trial_vectors += 1
                     break
             trials.append(np.array(trial))
         # print("Trial vectors generated\n")
         # print("Retries: ", retry_count)
-        print("--- %s seconds ---" % (time.time() - start_time))
         # NSDE selection
-        # population = parents + trials
-        # next_gen = nsde(population, functions, g)
-        # parents = next_gen[:]
-    # return next_gen
-    print("Total approx:", approx_trial_vectors)
-    return 0
+        population = parents + trials
+        next_gen, best_accuracy = nsde(population, functions, g)
+        best_accuracies.append(best_accuracy)
+        parents = next_gen[:]
+        print("--- %s seconds ---" % (time.time() - start_time))
+    
+    print("Best accuracies across epochs: ", best_accuracies)
+    f.close()
+    return next_gen
+

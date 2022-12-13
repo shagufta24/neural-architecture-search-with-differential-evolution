@@ -38,13 +38,22 @@ output = decoder(latent_vector)
 model = Model(inputs = inp, outputs = output)
 model.compile("nadam", metrics= [keras.metrics.Accuracy()], loss = MeanAbsolutePercentageError())
 
-history = model.fit(X_train, X_train, epochs=200, batch_size=64, verbose=0, validation_data=(X_test,X_test))
+history = model.fit(X_train, X_train, epochs=200, batch_size=64, verbose=1, validation_data=(X_test,X_test))
 
 # summarize history for loss
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
 plt.title('model loss')
 plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper right')
+plt.show()
+
+# summarize history for loss
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train', 'test'], loc='upper right')
 plt.show()

@@ -33,10 +33,25 @@ float_nums = np.array([i*(1/(2*n_inputs+1)) for i in range(2*n_inputs+1)])
 mapping = {float_nums[i]: i for i in range(2*n_inputs+1)}
 # print(mapping)
 
+
 a = [1, 2, 3, 4, 5]
 b = ['a', 'b', 'c']
 c = [6, 7, 8]
-print(a+b+c)
+d = a+b+c
+
+def log():
+    print(d)
+
+a = []
+
+def test():
+    for i in range(5):
+        if (i==0):
+            a = [0] * 5
+            a[i] = 10
+        else: a[i] = 20
+test()
+
         
 
 
